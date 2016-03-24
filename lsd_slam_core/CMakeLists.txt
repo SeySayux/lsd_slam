@@ -100,6 +100,10 @@ target_link_libraries(lsdslam ${FABMAP_LIB}
 )
 # rosbuild_link_boost(lsdslam thread)
 
+install(TARGETS lsdslam LIBRARY DESTINATION lib)
+install(DIRECTORY src/ DESTINATION include/LsdSlam
+        FILES_MATCHING PATTERN "*.h")
+
 
 # build live ros node
 # rosbuild_add_executable(live_slam src/main_live_odometry.cpp)
