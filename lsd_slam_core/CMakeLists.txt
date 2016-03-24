@@ -103,6 +103,8 @@ target_link_libraries(lsdslam ${FABMAP_LIB}
 install(TARGETS lsdslam LIBRARY DESTINATION lib)
 install(DIRECTORY src/ DESTINATION include/LsdSlam
         FILES_MATCHING PATTERN "*.h")
+install(DIRECTORY thirdparty/Sophus/sophus DESTINATION include
+        FILES_MATCHING PATTERN "*.hpp")
 
 
 # build live ros node
