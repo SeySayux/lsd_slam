@@ -32,7 +32,6 @@
 // compile a constructor variant for 4-component vectors, resulting in a
 // static assertion failure.
 
-
 #if 0
 template class Eigen::Quaternion<float>;
 template class Eigen::Quaternion<double>;

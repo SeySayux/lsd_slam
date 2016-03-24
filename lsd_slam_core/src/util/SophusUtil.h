@@ -2,7 +2,7 @@
 * This file is part of LSD-SLAM.
 *
 * Copyright 2013 Jakob Engel <engelj at in dot tum dot de> (Technical University of Munich)
-* For more information see <http://vision.in.tum.de/lsdslam> 
+* For more information see <http://vision.in.tum.de/lsdslam>
 *
 * LSD-SLAM is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -66,6 +66,7 @@ inline SE3 se3FromSim3(const Sim3& sim3)
 }
 
 // Extern templates (see SophusUtil.cpp)
+#if 0
 extern template class Eigen::Quaternion<float>;
 extern template class Eigen::Quaternion<double>;
 
@@ -74,3 +75,4 @@ extern template class Sophus::SE3Group<double, 0>;
 
 extern template class Sophus::Sim3Group<float, 0>;
 extern template class Sophus::Sim3Group<double, 0>;
+#endif
