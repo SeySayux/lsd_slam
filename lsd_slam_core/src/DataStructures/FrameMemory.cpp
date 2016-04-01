@@ -2,7 +2,7 @@
 * This file is part of LSD-SLAM.
 *
 * Copyright 2013 Jakob Engel <engelj at in dot tum dot de> (Technical University of Munich)
-* For more information see <http://vision.in.tum.de/lsdslam> 
+* For more information see <http://vision.in.tum.de/lsdslam>
 *
 * LSD-SLAM is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 
 #include "DataStructures/FrameMemory.h"
 #include "DataStructures/Frame.h"
+#include "util/log.h"
 
 namespace lsd_slam
 {
@@ -45,7 +46,7 @@ void FrameMemory::releaseBuffes()
 	for(auto p : availableBuffers)
 	{
 		if(printMemoryDebugInfo)
-			printf("deleting %d buffers of size %d!\n", (int)p.second.size(), (int)p.first);
+			log::debug("deleting %d buffers of size %d!\n", (int)p.second.size(), (int)p.first);
 
 		total += p.second.size() * p.first;
 
@@ -60,14 +61,14 @@ void FrameMemory::releaseBuffes()
 	availableBuffers.clear();
 
 	if(printMemoryDebugInfo)
-		printf("released %.1f MB!\n", total / (1000000.0f));
+		log::debug("released %.1f MB!\n", total / (1000000.0f));
 }
 
 
 void* FrameMemory::getBuffer(unsigned int sizeInByte)
 {
 	boost::unique_lock<boost::mutex> lock(accessMutex);
-	
+
 	if (availableBuffers.count(sizeInByte) > 0)
 	{
 		std::vector< void* >& availableOfSize = availableBuffers.at(sizeInByte);
@@ -104,7 +105,7 @@ void FrameMemory::returnBuffer(void* buffer)
 	if(buffer==0) return;
 
 	boost::unique_lock<boost::mutex> lock(accessMutex);
-	
+
 	unsigned int size = bufferSizes.at(buffer);
 	//printf("returnFloatBuffer(%d)\n", size);
 	if (availableBuffers.count(size) > 0)
@@ -120,7 +121,7 @@ void FrameMemory::returnBuffer(void* buffer)
 void* FrameMemory::allocateBuffer(unsigned int size)
 {
 	//printf("allocateFloatBuffer(%d)\n", size);
-	
+
 	void* buffer = Eigen::internal::aligned_malloc(size);
 	bufferSizes.insert(std::make_pair(buffer, size));
 	return buffer;
@@ -142,7 +143,7 @@ void FrameMemory::deactivateFrame(Frame* frame)
 	activeFrames.remove(frame);
 
 	while(!frame->minimizeInMemory())
-		printf("cannot deactivateFrame frame %d, as some acvite-lock is lingering. May cause deadlock!\n", frame->id());	// do it in a loop, to make shure it is really, really deactivated.
+		log::warning("cannot deactivateFrame frame %d, as some acvite-lock is lingering. May cause deadlock!\n", frame->id());	// do it in a loop, to make shure it is really, really deactivated.
 
 	frame->isActive = false;
 }
@@ -156,7 +157,7 @@ void FrameMemory::pruneActiveFrames()
 		{
 			if(!activeFrames.back()->minimizeInMemory())
 			{
-				printf("failed to minimize frame %d twice. maybe some active-lock is lingering?\n",activeFrames.back()->id());
+				log::warning("failed to minimize frame %d twice. maybe some active-lock is lingering?\n",activeFrames.back()->id());
 				return;	 // pre-emptive return if could not deactivate.
 			}
 		}

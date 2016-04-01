@@ -2,7 +2,7 @@
 * This file is part of LSD-SLAM.
 *
 * Copyright 2013 Jakob Engel <engelj at in dot tum dot de> (Technical University of Munich)
-* For more information see <http://vision.in.tum.de/lsdslam> 
+* For more information see <http://vision.in.tum.de/lsdslam>
 *
 * LSD-SLAM is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 #include "DataStructures/Frame.h"
 #include "Tracking/SE3Tracker.h"
 #include "IOWrapper/ImageDisplay.h"
+#include "util/log.h"
 
 namespace lsd_slam
 {
@@ -205,7 +206,7 @@ void Relocalizer::threadLoop(int idx)
 				if(numGoodNeighbours > numBadNeighbours || numGoodNeighbours >= 5)
 				{
 					if(enablePrintDebugInfo && printRelocalizationInfo)
-						printf("RELOCALIZED! frame %d on %d (bestNeighbour %d): good %2.1f%%, usage %2.1f%%, GoodNeighbours %d / %d\n",
+						log::debug("RELOCALIZED! frame %d on %d (bestNeighbour %d): good %2.1f%%, usage %2.1f%%, GoodNeighbours %d / %d\n",
 								myRelocFrame->id(), todo->id(), bestKF->id(),
 								100*bestNeightbourGoodVal, 100*bestNeighbourUsage,
 								numGoodNeighbours, numGoodNeighbours+numBadNeighbours);
@@ -224,7 +225,7 @@ void Relocalizer::threadLoop(int idx)
 				else
 				{
 					if(enablePrintDebugInfo && printRelocalizationInfo)
-						printf("FAILED RELOCALIZE! frame %d on %d (bestNeighbour %d): good %2.1f%%, usage %2.1f%%, GoodNeighbours %d / %d\n",
+						log::debug("FAILED RELOCALIZE! frame %d on %d (bestNeighbour %d): good %2.1f%%, usage %2.1f%%, GoodNeighbours %d / %d\n",
 								myRelocFrame->id(), todo->id(), bestKF->id(),
 								100*bestNeightbourGoodVal, 100*bestNeighbourUsage,
 								numGoodNeighbours, numGoodNeighbours+numBadNeighbours);

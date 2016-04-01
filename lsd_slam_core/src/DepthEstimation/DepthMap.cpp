@@ -29,6 +29,7 @@
 #include "DepthEstimation/DepthMapPixelHypothesis.h"
 #include "DataStructures/Frame.h"
 #include "util/globalFuncs.h"
+#include "util/log.h"
 #include "IOWrapper/ImageDisplay.h"
 #include "GlobalMapping/KeyFrameGraph.h"
 
@@ -151,7 +152,7 @@ void DepthMap::observeDepth()
 
 	if(enablePrintDebugInfo && printObserveStatistics)
 	{
-		printf("OBSERVE (%d): %d / %d created; %d / %d updated; %d skipped; %d init-blacklisted\n",
+		log::debug("OBSERVE (%d): %d / %d created; %d / %d updated; %d skipped; %d init-blacklisted\n",
 				activeKeyFrame->id(),
 				runningStats.num_observe_created,
 				runningStats.num_observe_create_attempted,
@@ -165,7 +166,7 @@ void DepthMap::observeDepth()
 
 	if(enablePrintDebugInfo && printObservePurgeStatistics)
 	{
-		printf("OBS-PRG (%d): Good: %d; inconsistent: %d; notfound: %d; oob: %d; failed: %d; addSkip: %d;\n",
+		log::debug("OBS-PRG (%d): Good: %d; inconsistent: %d; notfound: %d; oob: %d; failed: %d; addSkip: %d;\n",
 				activeKeyFrame->id(),
 				runningStats.num_observe_good,
 				runningStats.num_observe_inconsistent,
@@ -487,7 +488,7 @@ void DepthMap::propagateDepth(Frame* new_keyframe)
 
 	if(new_keyframe->getTrackingParent() != activeKeyFrame)
 	{
-		printf("WARNING: propagating depth from frame %d to %d, which was tracked on a different frame (%d).\nWhile this should work, it is not recommended.",
+		log::warning("WARNING: propagating depth from frame %d to %d, which was tracked on a different frame (%d).\nWhile this should work, it is not recommended.",
 				activeKeyFrame->id(), new_keyframe->id(),
 				new_keyframe->getTrackingParent()->id());
 	}
@@ -639,7 +640,7 @@ void DepthMap::propagateDepth(Frame* new_keyframe)
 
 	if(enablePrintDebugInfo && printPropagationStatistics)
 	{
-		printf("PROPAGATE: %d: %d drop (%d oob, %d color); %d created; %d merged; %d occluded. %d col-dec, %d grad-dec.\n",
+		log::debug("PROPAGATE: %d: %d drop (%d oob, %d color); %d created; %d merged; %d occluded. %d col-dec, %d grad-dec.\n",
 				runningStats.num_prop_attempts,
 				runningStats.num_prop_removed_validity + runningStats.num_prop_removed_out_of_bounds + runningStats.num_prop_removed_colorDiff,
 				runningStats.num_prop_removed_out_of_bounds,
@@ -713,7 +714,7 @@ void DepthMap::regularizeDepthMapFillHoles()
 	memcpy(otherDepthMap,currentDepthMap,width*height*sizeof(DepthMapPixelHypothesis));
 	threadReducer.reduce(boost::bind(&DepthMap::regularizeDepthMapFillHolesRow, this, _1, _2, _3), 3, height-2, 10);
 	if(enablePrintDebugInfo && printFillHolesStatistics)
-		printf("FillHoles (discreteDepth): %d created\n",
+		log::debug("FillHoles (discreteDepth): %d created\n",
 				runningStats.num_reg_created);
 }
 
@@ -869,7 +870,7 @@ void DepthMap::regularizeDepthMap(bool removeOcclusions, int validityTH)
 
 
 	if(enablePrintDebugInfo && printRegularizeStatistics)
-		printf("REGULARIZE (%d): %d smeared; %d blacklisted /%d new); %d deleted; %d occluded; %d filled\n",
+		log::debug("REGULARIZE (%d): %d smeared; %d blacklisted /%d new); %d deleted; %d occluded; %d filled\n",
 				activeKeyFrame->id(),
 				runningStats.num_reg_smeared,
 				runningStats.num_reg_blacklisted,
@@ -1087,7 +1088,7 @@ void DepthMap::updateKeyframe(std::deque< std::shared_ptr<Frame> > referenceFram
 
 		if(frame->getTrackingParent() != activeKeyFrame)
 		{
-			printf("WARNING: updating frame %d with %d, which was tracked on a different frame (%d).\nWhile this should work, it is not recommended.",
+			log::debug("WARNING: updating frame %d with %d, which was tracked on a different frame (%d).\nWhile this should work, it is not recommended.",
 					activeKeyFrame->id(), frame->id(),
 					frame->getTrackingParent()->id());
 		}
@@ -1176,7 +1177,7 @@ void DepthMap::updateKeyframe(std::deque< std::shared_ptr<Frame> > referenceFram
 
 	if(enablePrintDebugInfo && printLineStereoStatistics)
 	{
-		printf("ST: calls %6d, comp %6d, int %7d; good %6d (%.0f%%), neg %6d (%.0f%%); interp %6d / %6d / %6d\n",
+		log::debug("ST: calls %6d, comp %6d, int %7d; good %6d (%.0f%%), neg %6d (%.0f%%); interp %6d / %6d / %6d\n",
 				runningStats.num_stereo_calls,
 				runningStats.num_stereo_comparisons,
 				runningStats.num_pixelInterpolations,
@@ -1190,7 +1191,7 @@ void DepthMap::updateKeyframe(std::deque< std::shared_ptr<Frame> > referenceFram
 	}
 	if(enablePrintDebugInfo && printLineStereoFails)
 	{
-		printf("ST-ERR: oob %d (scale %d, inf %d, near %d); err %d (%d uncl; %d end; zro: %d btw, %d no, %d two; %d big)\n",
+		log::debug("ST-ERR: oob %d (scale %d, inf %d, near %d); err %d (%d uncl; %d end; zro: %d btw, %d no, %d two; %d big)\n",
 				runningStats.num_stereo_rescale_oob+
 					runningStats.num_stereo_inf_oob+
 					runningStats.num_stereo_near_oob,
@@ -1345,7 +1346,7 @@ void DepthMap::addTimingSample()
 
 		if(enablePrintDebugInfo && printMappingTiming)
 		{
-			printf("Upd %3.1fms (%.1fHz); Create %3.1fms (%.1fHz); Final %3.1fms (%.1fHz) // Obs %3.1fms (%.1fHz); Reg %3.1fms (%.1fHz); Prop %3.1fms (%.1fHz); Fill %3.1fms (%.1fHz); Set %3.1fms (%.1fHz)\n",
+			log::debug("Upd %3.1fms (%.1fHz); Create %3.1fms (%.1fHz); Final %3.1fms (%.1fHz) // Obs %3.1fms (%.1fHz); Reg %3.1fms (%.1fHz); Prop %3.1fms (%.1fHz); Fill %3.1fms (%.1fHz); Set %3.1fms (%.1fHz)\n",
 					msUpdate, nAvgUpdate,
 					msCreate, nAvgCreate,
 					msFinalize, nAvgFinalize,

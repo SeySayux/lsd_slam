@@ -2,7 +2,7 @@
 * This file is part of LSD-SLAM.
 *
 * Copyright 2013 Jakob Engel <engelj at in dot tum dot de> (Technical University of Munich)
-* For more information see <http://vision.in.tum.de/lsdslam> 
+* For more information see <http://vision.in.tum.de/lsdslam>
 *
 * LSD-SLAM is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@
 #include "Tracking/TrackingReference.h"
 #include "LiveSLAMWrapper.h"
 #include "util/globalFuncs.h"
+#include "util/log.h"
 #include "GlobalMapping/KeyFrameGraph.h"
 #include "GlobalMapping/TrackableKeyFrameSearch.h"
 #include "GlobalMapping/g2oTypeSim3Sophus.h"
@@ -54,7 +55,7 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K, bool enableSLAM)
 {
 	if(w%16 != 0 || h%16!=0)
 	{
-		printf("image dimensions must be multiples of 16! Please crop your images / video accordingly.\n");
+        log::fatal("image dimensions must be multiples of 16! Please crop your images / video accordingly.\n");
 		assert(false);
 	}
 
@@ -70,7 +71,7 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K, bool enableSLAM)
 	createNewKeyFrame = false;
 
 	map =  new DepthMap(w,h,K);
-	
+
 	newConstraintAdded = false;
 	haveUnmergedOptimizationOffset = false;
 
@@ -130,7 +131,7 @@ SlamSystem::~SlamSystem()
 	keepRunning = false;
 
 	// make sure none is waiting for something.
-	printf("... waiting for SlamSystem's threads to exit\n");
+    log::warning("... waiting for SlamSystem's threads to exit\n");
 	newFrameMappedSignal.notify_all();
 	unmappedTrackedFramesSignal.notify_all();
 	newKeyFrameCreatedSignal.notify_all();
@@ -139,7 +140,7 @@ SlamSystem::~SlamSystem()
 	thread_mapping.join();
 	thread_constraint_search.join();
 	thread_optimization.join();
-	printf("DONE waiting for SlamSystem's threads to exit\n");
+    log::warning("DONE waiting for SlamSystem's threads to exit\n");
 
 	if(trackableKeyFrameSearch != 0) delete trackableKeyFrameSearch;
 	if(constraintTracker != 0) delete constraintTracker;
@@ -205,7 +206,7 @@ void SlamSystem::mergeOptimizationOffset()
 
 void SlamSystem::mappingThreadLoop()
 {
-	printf("Started mapping thread!\n");
+    log::info("Started mapping thread!\n");
 	while(keepRunning)
 	{
 		if (!doMappingIteration())
@@ -219,12 +220,12 @@ void SlamSystem::mappingThreadLoop()
 		newFrameMappedSignal.notify_all();
 		newFrameMappedMutex.unlock();
 	}
-	printf("Exited mapping thread \n");
+    log::info("Exited mapping thread \n");
 }
 
 void SlamSystem::finalize()
 {
-	printf("Finalizing Graph... finding final constraints!!\n");
+    log::info("Finalizing Graph... finding final constraints!!\n");
 
 	lastNumConstraintsAddedOnFullRetrack = 1;
 	while(lastNumConstraintsAddedOnFullRetrack != 0)
@@ -234,7 +235,7 @@ void SlamSystem::finalize()
 	}
 
 
-	printf("Finalizing Graph... optimizing!!\n");
+    log::info("Finalizing Graph... optimizing!!\n");
 	doFinalOptimization = true;
 	newConstraintMutex.lock();
 	newConstraintAdded = true;
@@ -246,7 +247,7 @@ void SlamSystem::finalize()
 	}
 
 
-	printf("Finalizing Graph... publishing!!\n");
+    log::info("Finalizing Graph... publishing!!\n");
 	unmappedTrackedFramesMutex.lock();
 	unmappedTrackedFramesSignal.notify_one();
 	unmappedTrackedFramesMutex.unlock();
@@ -259,14 +260,14 @@ void SlamSystem::finalize()
 	newFrameMappedSignal.wait(lock);
 
 	usleep(200000);
-	printf("Done Finalizing Graph.!!\n");
+    log::info("Done Finalizing Graph.!!\n");
 }
 
 
 void SlamSystem::constraintSearchThreadLoop()
 {
-	printf("Started  constraint search thread!\n");
-	
+    log::info("Started  constraint search thread!\n");
+
 	boost::unique_lock<boost::mutex> lock(newKeyFrameMutex);
 	int failedToRetrack = 0;
 
@@ -304,7 +305,7 @@ void SlamSystem::constraintSearchThreadLoop()
 			if(!doneSomething)
 			{
 				if(enablePrintDebugInfo && printConstraintSearchInfo)
-					printf("nothing to re-track... waiting.\n");
+					log::debug("nothing to re-track... waiting.\n");
 				newKeyFrameCreatedSignal.timed_wait(lock,boost::posix_time::milliseconds(500));
 
 			}
@@ -332,7 +333,7 @@ void SlamSystem::constraintSearchThreadLoop()
 		if(doFullReConstraintTrack)
 		{
 			lock.unlock();
-			printf("Optizing Full Map!\n");
+            log::info("Optizing Full Map!\n");
 
 			int added = 0;
 			for(unsigned int i=0;i<keyFrameGraph->keyframesAll.size();i++)
@@ -341,7 +342,7 @@ void SlamSystem::constraintSearchThreadLoop()
 					added += findConstraintsForNewKeyFrames(keyFrameGraph->keyframesAll[i], false, false, 1.0);
 			}
 
-			printf("Done optizing Full Map! Added %d constraints.\n", added);
+            log::info("Done optizing Full Map! Added %d constraints.\n", added);
 
 			doFullReConstraintTrack = false;
 
@@ -353,12 +354,12 @@ void SlamSystem::constraintSearchThreadLoop()
 
 	}
 
-	printf("Exited constraint search thread \n");
+    log::info("Exited constraint search thread \n");
 }
 
 void SlamSystem::optimizationThreadLoop()
 {
-	printf("Started optimization thread \n");
+    log::info("Started optimization thread \n");
 
 	while(keepRunning)
 	{
@@ -370,14 +371,14 @@ void SlamSystem::optimizationThreadLoop()
 
 		if(doFinalOptimization)
 		{
-			printf("doing final optimization iteration!\n");
+            log::info("doing final optimization iteration!\n");
 			optimizationIteration(50, 0.001);
 			doFinalOptimization = false;
 		}
 		while(optimizationIteration(5, 0.02));
 	}
 
-	printf("Exited optimization thread \n");
+    log::info("Exited optimization thread \n");
 }
 
 void SlamSystem::publishKeyframeGraph()
@@ -395,7 +396,7 @@ void SlamSystem::requestDepthMapScreenshot(const std::string& filename)
 void SlamSystem::finishCurrentKeyframe()
 {
 	if(enablePrintDebugInfo && printThreadingInfo)
-		printf("FINALIZING KF %d\n", currentKeyFrame->id());
+		log::debug("FINALIZING KF %d\n", currentKeyFrame->id());
 
 	map->finalizeKeyFrame();
 
@@ -428,11 +429,11 @@ void SlamSystem::finishCurrentKeyframe()
 void SlamSystem::discardCurrentKeyframe()
 {
 	if(enablePrintDebugInfo && printThreadingInfo)
-		printf("DISCARDING KF %d\n", currentKeyFrame->id());
+		log::debug("DISCARDING KF %d\n", currentKeyFrame->id());
 
 	if(currentKeyFrame->idxInKeyframes >= 0)
 	{
-		printf("WARNING: trying to discard a KF that has already been added to the graph... finalizing instead.\n");
+        log::warning("WARNING: trying to discard a KF that has already been added to the graph... finalizing instead.\n");
 		finishCurrentKeyframe();
 		return;
 	}
@@ -458,7 +459,7 @@ void SlamSystem::discardCurrentKeyframe()
 void SlamSystem::createNewCurrentKeyframe(std::shared_ptr<Frame> newKeyframeCandidate)
 {
 	if(enablePrintDebugInfo && printThreadingInfo)
-		printf("CREATE NEW KF %d from %d\n", newKeyframeCandidate->id(), currentKeyFrame->id());
+		log::debug("CREATE NEW KF %d from %d\n", newKeyframeCandidate->id(), currentKeyFrame->id());
 
 
 	if(SLAMEnabled)
@@ -491,12 +492,12 @@ void SlamSystem::createNewCurrentKeyframe(std::shared_ptr<Frame> newKeyframeCand
 void SlamSystem::loadNewCurrentKeyframe(Frame* keyframeToLoad)
 {
 	if(enablePrintDebugInfo && printThreadingInfo)
-		printf("RE-ACTIVATE KF %d\n", keyframeToLoad->id());
+		log::debug("RE-ACTIVATE KF %d\n", keyframeToLoad->id());
 
 	map->setFromExistingKF(keyframeToLoad);
 
 	if(enablePrintDebugInfo && printRegularizeStatistics)
-		printf("re-activate frame %d!\n", keyframeToLoad->id());
+		log::debug("re-activate frame %d!\n", keyframeToLoad->id());
 
 	currentKeyFrameMutex.lock();
 	currentKeyFrame = keyFrameGraph->idToKeyFrame.find(keyframeToLoad->id())->second;
@@ -528,7 +529,7 @@ void SlamSystem::changeKeyframe(bool noCreate, bool force, float maxScore)
 			{
 				trackingIsGood = false;
 				nextRelocIdx = -1;
-				printf("mapping is disabled & moved outside of known map. Starting Relocalizer!\n");
+                log::info("mapping is disabled & moved outside of known map. Starting Relocalizer!\n");
 			}
 			else
 				createNewCurrentKeyframe(newKeyframeCandidate);
@@ -566,7 +567,7 @@ bool SlamSystem::updateKeyframe()
 		unmappedTrackedFramesMutex.unlock();
 
 		if(enablePrintDebugInfo && printThreadingInfo)
-			printf("MAPPING %d on %d to %d (%d frames)\n", currentKeyFrame->id(), references.front()->id(), references.back()->id(), (int)references.size());
+			log::debug("MAPPING %d on %d to %d (%d frames)\n", currentKeyFrame->id(), references.front()->id(), references.back()->id(), (int)references.size());
 
 		map->updateKeyframe(references);
 
@@ -638,7 +639,7 @@ void SlamSystem::addTimingSamples()
 
 		if(enablePrintDebugInfo && printOverallTiming)
 		{
-			printf("MapIt: %3.1fms (%.1fHz); Track: %3.1fms (%.1fHz); Create: %3.1fms (%.1fHz); FindRef: %3.1fms (%.1fHz); PermaTrk: %3.1fms (%.1fHz); Opt: %3.1fms (%.1fHz); FindConst: %3.1fms (%.1fHz);\n",
+            log::debug("MapIt: %3.1fms (%.1fHz); Track: %3.1fms (%.1fHz); Create: %3.1fms (%.1fHz); FindRef: %3.1fms (%.1fHz); PermaTrk: %3.1fms (%.1fHz); Opt: %3.1fms (%.1fHz); FindConst: %3.1fms (%.1fHz);\n",
 					map->msUpdate, map->nAvgUpdate,
 					msTrackFrame, nAvgTrackFrame,
 					map->msCreate+map->msFinalize, map->nAvgCreate,
@@ -717,7 +718,7 @@ void SlamSystem::takeRelocalizeResult()
 	if(!tracker->trackingWasGood || tracker->lastGoodCount / (tracker->lastGoodCount + tracker->lastBadCount) < 1-0.75f*(1-MIN_GOODPERGOODBAD_PIXEL))
 	{
 		if(enablePrintDebugInfo && printRelocalizationInfo)
-			printf("RELOCALIZATION FAILED BADLY! discarding result.\n");
+			log::error("RELOCALIZATION FAILED BADLY! discarding result.\n");
 		trackingReference->invalidate();
 	}
 	else
@@ -749,7 +750,7 @@ bool SlamSystem::doMappingIteration()
 			discardCurrentKeyframe();
 
 		map->invalidate();
-		printf("Finished KF %d as Mapping got disabled!\n",currentKeyFrame->id());
+        log::info("Finished KF %d as Mapping got disabled!\n",currentKeyFrame->id());
 
 		changeKeyframe(true, true, 1.0f);
 	}
@@ -830,7 +831,7 @@ bool SlamSystem::doMappingIteration()
 
 void SlamSystem::gtDepthInit(uchar* image, float* depth, double timeStamp, int id)
 {
-	printf("Doing GT initialization!\n");
+    log::info("Doing GT initialization!\n");
 
 	currentKeyFrameMutex.lock();
 
@@ -850,16 +851,16 @@ void SlamSystem::gtDepthInit(uchar* image, float* depth, double timeStamp, int i
 	}
 	if(continuousPCOutput && outputWrapper != 0) outputWrapper->publishKeyframe(currentKeyFrame.get());
 
-	printf("Done GT initialization!\n");
+    log::info("Done GT initialization!\n");
 }
 
 
 void SlamSystem::randomInit(uchar* image, double timeStamp, int id)
 {
-	printf("Doing Random initialization!\n");
+    log::info("Doing Random initialization!\n");
 
 	if(!doMapping)
-		printf("WARNING: mapping is disabled, but we just initialized... THIS WILL NOT WORK! Set doMapping to true.\n");
+		log::warning("WARNING: mapping is disabled, but we just initialized... THIS WILL NOT WORK! Set doMapping to true.\n");
 
 
 	currentKeyFrameMutex.lock();
@@ -883,7 +884,7 @@ void SlamSystem::randomInit(uchar* image, double timeStamp, int id)
 		debugDisplayDepthMap();
 
 
-	printf("Done Random initialization!\n");
+    log::info("Done Random initialization!\n");
 
 }
 
@@ -916,7 +917,7 @@ void SlamSystem::trackFrame(uchar* image, unsigned int frameID, bool blockUntilM
 
 	// DO TRACKING & Show tracking result.
 	if(enablePrintDebugInfo && printThreadingInfo)
-		printf("TRACKING %d on %d\n", trackingNewFrame->id(), trackingReferencePose->frameID);
+		log::debug("TRACKING %d on %d\n", trackingNewFrame->id(), trackingReferencePose->frameID);
 
 
 	poseConsistencyMutex.lock_shared();
@@ -947,7 +948,7 @@ void SlamSystem::trackFrame(uchar* image, unsigned int frameID, bool blockUntilM
 
 	if(manualTrackingLossIndicated || tracker->diverged || (keyFrameGraph->keyframesAll.size() > INITIALIZATION_PHASE_COUNT && !tracker->trackingWasGood))
 	{
-		printf("TRACKING LOST for frame %d (%1.2f%% good Points, which is %1.2f%% of available points, %s)!\n",
+        log::error("TRACKING LOST for frame %d (%1.2f%% good Points, which is %1.2f%% of available points, %s)!\n",
 				trackingNewFrame->id(),
 				100*tracking_lastGoodPerTotal,
 				100*tracking_lastGoodPerBad,
@@ -1009,12 +1010,12 @@ void SlamSystem::trackFrame(uchar* image, unsigned int frameID, bool blockUntilM
 			createNewKeyFrame = true;
 
 			if(enablePrintDebugInfo && printKeyframeSelectionInfo)
-				printf("SELECT %d on %d! dist %.3f + usage %.3f = %.3f > 1\n",trackingNewFrame->id(),trackingNewFrame->getTrackingParent()->id(), dist.dot(dist), tracker->pointUsage, trackableKeyFrameSearch->getRefFrameScore(dist.dot(dist), tracker->pointUsage));
+				log::debug("SELECT %d on %d! dist %.3f + usage %.3f = %.3f > 1\n",trackingNewFrame->id(),trackingNewFrame->getTrackingParent()->id(), dist.dot(dist), tracker->pointUsage, trackableKeyFrameSearch->getRefFrameScore(dist.dot(dist), tracker->pointUsage));
 		}
 		else
 		{
 			if(enablePrintDebugInfo && printKeyframeSelectionInfo)
-				printf("SKIPPD %d on %d! dist %.3f + usage %.3f = %.3f > 1\n",trackingNewFrame->id(),trackingNewFrame->getTrackingParent()->id(), dist.dot(dist), tracker->pointUsage, trackableKeyFrameSearch->getRefFrameScore(dist.dot(dist), tracker->pointUsage));
+				log::debug("SKIPPD %d on %d! dist %.3f + usage %.3f = %.3f > 1\n",trackingNewFrame->id(),trackingNewFrame->getTrackingParent()->id(), dist.dot(dist), tracker->pointUsage, trackableKeyFrameSearch->getRefFrameScore(dist.dot(dist), tracker->pointUsage));
 
 		}
 	}
@@ -1146,7 +1147,7 @@ void SlamSystem::testConstraint(
 	if(err_level3 > 3000*strictness)
 	{
 		if(enablePrintDebugInfo && printConstraintSearchInfo)
-			printf("FAILE %d -> %d (lvl %d): errs (%.1f / - / -).",
+			log::debug("FAILE %d -> %d (lvl %d): errs (%.1f / - / -).",
 				newKFTrackingReference->frameID, candidateTrackingReference->frameID,
 				3,
 				sqrtf(err_level3));
@@ -1166,7 +1167,7 @@ void SlamSystem::testConstraint(
 	if(err_level2 > 4000*strictness)
 	{
 		if(enablePrintDebugInfo && printConstraintSearchInfo)
-			printf("FAILE %d -> %d (lvl %d): errs (%.1f / %.1f / -).",
+			log::debug("FAILE %d -> %d (lvl %d): errs (%.1f / %.1f / -).",
 				newKFTrackingReference->frameID, candidateTrackingReference->frameID,
 				2,
 				sqrtf(err_level3), sqrtf(err_level2));
@@ -1189,7 +1190,7 @@ void SlamSystem::testConstraint(
 	if(err_level1 > 6000*strictness)
 	{
 		if(enablePrintDebugInfo && printConstraintSearchInfo)
-			printf("FAILE %d -> %d (lvl %d): errs (%.1f / %.1f / %.1f).",
+			log::debug("FAILE %d -> %d (lvl %d): errs (%.1f / %.1f / %.1f).",
 					newKFTrackingReference->frameID, candidateTrackingReference->frameID,
 					1,
 					sqrtf(err_level3), sqrtf(err_level2), sqrtf(err_level1));
@@ -1203,7 +1204,7 @@ void SlamSystem::testConstraint(
 
 
 	if(enablePrintDebugInfo && printConstraintSearchInfo)
-		printf("ADDED %d -> %d: errs (%.1f / %.1f / %.1f).",
+		log::debug("ADDED %d -> %d: errs (%.1f / %.1f / %.1f).",
 			newKFTrackingReference->frameID, candidateTrackingReference->frameID,
 			sqrtf(err_level3), sqrtf(err_level2), sqrtf(err_level1));
 
@@ -1247,7 +1248,7 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 		if(newKeyFrame->neighbors.find(*c) != newKeyFrame->neighbors.end())
 		{
 			if(enablePrintDebugInfo && printConstraintSearchInfo)
-				printf("SKIPPING %d on %d cause it already exists as constraint.\n", (*c)->id(), newKeyFrame->id());
+				log::debug("SKIPPING %d on %d cause it already exists as constraint.\n", (*c)->id(), newKeyFrame->id());
 			c = candidates.erase(c);
 		}
 		else
@@ -1366,7 +1367,7 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 		if(skip)
 		{
 			if(enablePrintDebugInfo && printConstraintSearchInfo)
-				printf("SKIPPING %d on %d (NEAR), cause we already have tried it.\n", (*c)->id(), newKeyFrame->id());
+				log::debug("SKIPPING %d on %d (NEAR), cause we already have tried it.\n", (*c)->id(), newKeyFrame->id());
 			c = closeCandidates.erase(c);
 		}
 		else
@@ -1394,7 +1395,7 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 		if(skip)
 		{
 			if(enablePrintDebugInfo && printConstraintSearchInfo)
-				printf("SKIPPING %d on %d (FAR), cause we already have tried it.\n", farCandidates[i]->id(), newKeyFrame->id());
+				log::debug("SKIPPING %d on %d (FAR), cause we already have tried it.\n", farCandidates[i]->id(), newKeyFrame->id());
 			farCandidates[i] = farCandidates.back();
 			farCandidates.pop_back();
 			i--;
@@ -1404,7 +1405,7 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 
 
 	if (enablePrintDebugInfo && printConstraintSearchInfo)
-		printf("Final Loop-Closure Candidates: %d / %d close (%d failed, %d inconsistent) + %d / %d far (%d failed, %d inconsistent) = %d\n",
+		log::debug("Final Loop-Closure Candidates: %d / %d close (%d failed, %d inconsistent) + %d / %d far (%d failed, %d inconsistent) = %d\n",
 				(int)closeCandidates.size(),closeAll, closeFailed, closeInconsistent,
 				(int)farCandidates.size(), farAll, farFailed, farInconsistent,
 				(int)closeCandidates.size() + (int)farCandidates.size());
@@ -1472,7 +1473,7 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 				loopclosureStrictness);
 
 		if(enablePrintDebugInfo && printConstraintSearchInfo)
-			printf(" CLOSE (%d)\n", distancesToNewKeyFrame.at(candidate));
+			log::debug(" CLOSE (%d)\n", distancesToNewKeyFrame.at(candidate));
 
 		if(e1 != 0)
 		{
@@ -1485,7 +1486,7 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 				if(farCandidates[k] == candidate)
 				{
 					if(enablePrintDebugInfo && printConstraintSearchInfo)
-						printf(" DELETED %d from far, as close was successful!\n", candidate->id());
+						log::debug(" DELETED %d from far, as close was successful!\n", candidate->id());
 
 					farCandidates[k] = farCandidates.back();
 					farCandidates.pop_back();
@@ -1506,7 +1507,7 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 				loopclosureStrictness);
 
 		if(enablePrintDebugInfo && printConstraintSearchInfo)
-			printf(" FAR (%d)\n", distancesToNewKeyFrame.at(candidate));
+			log::debug(" FAR (%d)\n", distancesToNewKeyFrame.at(candidate));
 
 		if(e1 != 0)
 		{
@@ -1526,7 +1527,7 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 				candidateToFrame_initialEstimateMap[parent],
 				100);
 		if(enablePrintDebugInfo && printConstraintSearchInfo)
-			printf(" PARENT (0)\n");
+			log::debug(" PARENT (0)\n");
 
 		if(e1 != 0)
 		{
@@ -1537,7 +1538,7 @@ int SlamSystem::findConstraintsForNewKeyFrames(Frame* newKeyFrame, bool forcePar
 		{
 			float downweightFac = 5;
 			const float kernelDelta = 5 * sqrt(6000*loopclosureStrictness) / downweightFac;
-			printf("warning: reciprocal tracking on new frame failed badly, added odometry edge (Hacky).\n");
+            log::debug("warning: reciprocal tracking on new frame failed badly, added odometry edge (Hacky).\n");
 
 			poseConsistencyMutex.lock_shared();
 			constraints.push_back(new KFConstraintStruct());
@@ -1606,7 +1607,7 @@ bool SlamSystem::optimizationIteration(int itsPerTry, float minChange)
 
 	// Do the optimization. This can take quite some time!
 	int its = keyFrameGraph->optimize(itsPerTry);
-	
+
 
 	// save the optimization result.
 	poseConsistencyMutex.lock_shared();
@@ -1657,7 +1658,7 @@ bool SlamSystem::optimizationIteration(int itsPerTry, float minChange)
 	g2oGraphAccessMutex.unlock();
 
 	if(enablePrintDebugInfo && printOptimizationInfo)
-		printf("did %d optimization iterations. Max Pose Parameter Change: %f; avgChange: %f. %s\n", its, maxChange, sumChange / sum,
+		log::debug("did %d optimization iterations. Max Pose Parameter Change: %f; avgChange: %f. %s\n", its, maxChange, sumChange / sum,
 				maxChange > minChange && its == itsPerTry ? "continue optimizing":"Waiting for addition to graph.");
 
 

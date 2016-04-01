@@ -2,7 +2,7 @@
 * This file is part of LSD-SLAM.
 *
 * Copyright 2013 Jakob Engel <engelj at in dot tum dot de> (Technical University of Munich)
-* For more information see <http://vision.in.tum.de/lsdslam> 
+* For more information see <http://vision.in.tum.de/lsdslam>
 *
 * LSD-SLAM is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 */
 
 #include "IOWrapper/ImageDisplay.h"
+#include "util/log.h"
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -49,7 +50,7 @@ namespace Util
 
 void displayThreadLoop()
 {
-	printf("started image display thread!\n");
+	log::info("started image display thread!\n");
 	boost::unique_lock<boost::mutex> lock(openCVdisplayMutex);
 	while(imageThreadKeepRunning)
 	{
@@ -76,7 +77,7 @@ void displayThreadLoop()
 	cv::destroyAllWindows();
 	openWindows.clear();
 
-	printf("ended image display thread!\n");
+	log::info("ended image display thread!\n");
 }
 void makeDisplayThread()
 {
@@ -136,10 +137,10 @@ void closeAllWindows()
 		{
 			imageThreadKeepRunning = false;
 			openCVdisplaySignal.notify_all();
-			printf("waiting for image display thread to end!\n");
+			log::info("waiting for image display thread to end!\n");
 			lock.unlock();
 			imageDisplayThread->join();
-			printf("done waiting for image display thread to end!\n");
+			log::info("done waiting for image display thread to end!\n");
 			imageDisplayThread = 0;
 		}
 	}

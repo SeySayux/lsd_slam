@@ -2,7 +2,7 @@
 * This file is part of LSD-SLAM.
 *
 * Copyright 2013 Jakob Engel <engelj at in dot tum dot de> (Technical University of Munich)
-* For more information see <http://vision.in.tum.de/lsdslam> 
+* For more information see <http://vision.in.tum.de/lsdslam>
 *
 * LSD-SLAM is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@
 #include "GlobalMapping/KeyFrameGraph.h"
 #include "DataStructures/Frame.h"
 #include "Tracking/SE3Tracker.h"
+#include "util/log.h"
 
 namespace lsd_slam
 {
@@ -42,7 +43,7 @@ TrackableKeyFrameSearch::TrackableKeyFrameSearch(KeyFrameGraph* graph, int w, in
 	nAvgTrackPermaRef=0;
 
 	if(enablePrintDebugInfo && printRelocalizationInfo)
-		printf("Relocalization Values: fowX %f, fowY %f\n", fowX, fowY);
+		log::debug("Relocalization Values: fowX %f, fowY %f\n", fowX, fowY);
 }
 
 TrackableKeyFrameSearch::~TrackableKeyFrameSearch()
@@ -156,7 +157,7 @@ Frame* TrackableKeyFrameSearch::findRePositionCandidate(Frame* frame, float maxS
 	if(bestFrame != 0)
 	{
 		if(enablePrintDebugInfo && printRelocalizationInfo)
-			printf("FindReferences for %d: Checked %d (%d). dist %.3f + usage %.3f = %.3f. pose discrepancy %.2f. TAKE %d!\n",
+			log::debug("FindReferences for %d: Checked %d (%d). dist %.3f + usage %.3f = %.3f. pose discrepancy %.2f. TAKE %d!\n",
 					(int)frame->id(), (int)potentialReferenceFrames.size(), checkedSecondary,
 					bestDist, bestUsage, bestScore,
 					bestPoseDiscrepancy, bestFrame->id());
@@ -165,7 +166,7 @@ Frame* TrackableKeyFrameSearch::findRePositionCandidate(Frame* frame, float maxS
 	else
 	{
 		if(enablePrintDebugInfo && printRelocalizationInfo)
-			printf("FindReferences for %d: Checked %d (%d), bestScore %.2f. MAKE NEW\n",
+			log::debug("FindReferences for %d: Checked %d (%d), bestScore %.2f. MAKE NEW\n",
 					(int)frame->id(), (int)potentialReferenceFrames.size(), checkedSecondary, bestScore);
 		return 0;
 	}
@@ -196,7 +197,7 @@ std::unordered_set<Frame*, std::hash<Frame*>, std::equal_to<Frame*>, Eigen::alig
 	}
 
 	if (enablePrintDebugInfo && printConstraintSearchInfo)
-		printf("Early LoopClosure-Candidates for %d: %d euclidean, %d appearance-based, %d total\n",
+		log::debug("Early LoopClosure-Candidates for %d: %d euclidean, %d appearance-based, %d total\n",
 				(int)keyframe->id(), (int)potentialReferenceFrames.size(), appearanceBased, (int)results.size());
 
 	return results;
@@ -210,16 +211,16 @@ Frame* TrackableKeyFrameSearch::findAppearanceBasedCandidate(Frame* keyframe)
 
 	if (! fabMap.isValid())
 	{
-		printf("Error: called findAppearanceBasedCandidate(), but FabMap instance is not valid!\n");
+		log::error("Error: called findAppearanceBasedCandidate(), but FabMap instance is not valid!\n");
 		return nullptr;
 	}
-	
+
 
 	int newID, loopID;
 	fabMap.compareAndAdd(keyframe, &newID, &loopID);
 	if (newID < 0)
 		return nullptr;
-	
+
 	fabmapIDToKeyframe.insert(std::make_pair(newID, keyframe));
 	if (loopID >= 0)
 		return fabmapIDToKeyframe.at(loopID);
@@ -227,7 +228,7 @@ Frame* TrackableKeyFrameSearch::findAppearanceBasedCandidate(Frame* keyframe)
 		return nullptr;
 #else
 	if(useFabMap)
-		printf("Warning: Compiled without FabMap, but useFabMap is enabled... ignoring.\n");
+		log::warning("Warning: Compiled without FabMap, but useFabMap is enabled... ignoring.\n");
 	return nullptr;
 #endif
 }

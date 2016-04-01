@@ -2,7 +2,7 @@
 * This file is part of LSD-SLAM.
 *
 * Copyright 2013 Jakob Engel <engelj at in dot tum dot de> (Technical University of Munich)
-* For more information see <http://vision.in.tum.de/lsdslam> 
+* For more information see <http://vision.in.tum.de/lsdslam>
 *
 * LSD-SLAM is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 #include "DataStructures/Frame.h"
 #include "Tracking/TrackingReference.h"
 #include "util/globalFuncs.h"
+#include "util/log.h"
 #include "IOWrapper/ImageDisplay.h"
 #include "Tracking/LGSX.h"
 
@@ -99,7 +100,7 @@ Sim3Tracker::Sim3Tracker(int w, int h, Eigen::Matrix3f K)
 	debugImageWeightedResP = cv::Mat(height,width,CV_8UC3);
 	debugImageWeightedResD = cv::Mat(height,width,CV_8UC3);
 
-	
+
 	lastResidual = 0;
 	iterationNumber = 0;
 	lastDepthResidual = lastPhotometricResidual = lastDepthResidualUnweighted = lastPhotometricResidualUnweighted = lastResidualUnweighted = 0;
@@ -266,10 +267,10 @@ Sim3 Sim3Tracker::trackFrameSim3(
 					if(enablePrintDebugInfo && printTrackingIterationInfo)
 					{
 						// debug output
-						printf("(%d-%d): ACCEPTED increment of %f with lambda %.1f, residual: %f -> %f\n",
+                        log::debug("(%d-%d): ACCEPTED increment of %f with lambda %.1f, residual: %f -> %f\n",
 								lvl,iteration, sqrt(inc.dot(inc)), LM_lambda, lastErr.mean, error.mean);
 
-						printf("         p=%.4f %.4f %.4f %.4f %.4f %.4f %.4f\n",
+                        log::debug("         p=%.4f %.4f %.4f %.4f %.4f %.4f %.4f\n",
 								referenceToFrame.log()[0],referenceToFrame.log()[1],referenceToFrame.log()[2],
 								referenceToFrame.log()[3],referenceToFrame.log()[4],referenceToFrame.log()[5],
 								referenceToFrame.log()[6]);
@@ -280,7 +281,7 @@ Sim3 Sim3Tracker::trackFrameSim3(
 					{
 						if(enablePrintDebugInfo && printTrackingIterationInfo)
 						{
-							printf("(%d-%d): FINISHED pyramid level (last residual reduction too small).\n",
+                            log::debug("(%d-%d): FINISHED pyramid level (last residual reduction too small).\n",
 									lvl,iteration);
 						}
 						iteration = settings.maxItsPerLvl[lvl];
@@ -299,7 +300,7 @@ Sim3 Sim3Tracker::trackFrameSim3(
 				{
 					if(enablePrintDebugInfo && printTrackingIterationInfo)
 					{
-						printf("(%d-%d): REJECTED increment of %f with lambda %.1f, (residual: %f -> %f)\n",
+                        log::debug("(%d-%d): REJECTED increment of %f with lambda %.1f, (residual: %f -> %f)\n",
 								lvl,iteration, sqrt(inc.dot(inc)), LM_lambda, lastErr.mean, error.mean);
 					}
 
@@ -307,7 +308,7 @@ Sim3 Sim3Tracker::trackFrameSim3(
 					{
 						if(enablePrintDebugInfo && printTrackingIterationInfo)
 						{
-							printf("(%d-%d): FINISHED pyramid level (stepsize too small).\n",
+                            log::debug("(%d-%d): FINISHED pyramid level (stepsize too small).\n",
 									lvl,iteration);
 						}
 						iteration = settings.maxItsPerLvl[lvl];
@@ -327,27 +328,25 @@ Sim3 Sim3Tracker::trackFrameSim3(
 
 	if(enablePrintDebugInfo && printTrackingIterationInfo)
 	{
-		printf("Tracking: ");
+        log::debug("Tracking: \n");
 			for(int lvl=PYRAMID_LEVELS-1;lvl >= 0;lvl--)
 			{
-				printf("lvl %d: %d (%d); ",
+				log::debug("lvl %d: %d (%d); \n",
 					lvl,
 					numCalcResidualCalls[lvl],
 					numCalcWarpUpdateCalls[lvl]);
 			}
 
-		printf("\n");
 
-
-		printf("pOld = %.5f %.5f %.5f %.5f %.5f %.5f %.5f\n",
+			log::debug("pOld = %.5f %.5f %.5f %.5f %.5f %.5f %.5f\n",
 				frameToReference_initialEstimate.inverse().log()[0],frameToReference_initialEstimate.inverse().log()[1],frameToReference_initialEstimate.inverse().log()[2],
 				frameToReference_initialEstimate.inverse().log()[3],frameToReference_initialEstimate.inverse().log()[4],frameToReference_initialEstimate.inverse().log()[5],
 				frameToReference_initialEstimate.inverse().log()[6]);
-		printf("pNew = %.5f %.5f %.5f %.5f %.5f %.5f %.5f\n",
+			log::debug("pNew = %.5f %.5f %.5f %.5f %.5f %.5f %.5f\n",
 				referenceToFrame.log()[0],referenceToFrame.log()[1],referenceToFrame.log()[2],
 				referenceToFrame.log()[3],referenceToFrame.log()[4],referenceToFrame.log()[5],
 				referenceToFrame.log()[6]);
-		printf("final res mean: %f meanD %f, meanP %f\n", finalResidual.mean, finalResidual.meanD, finalResidual.meanP);
+			log::debug("final res mean: %f meanD %f, meanP %f\n", finalResidual.mean, finalResidual.meanD, finalResidual.meanP);
 	}
 
 
@@ -841,7 +840,7 @@ Sim3ResidualStruct Sim3Tracker::calcSim3WeightsAndResidual(
 
 	if(plotSim3TrackingIterationInfo)
 	{
-		printf("rd %f, rp %f, wrd %f, wrp %f, wd %f, wp %f\n ",
+		log::debug("rd %f, rp %f, wrd %f, wrp %f, wd %f, wp %f\n ",
 				sum_rd/sum_num_d,
 				sum_rp/sum_num_p,
 				sum_wrd/sum_num_d,
@@ -1107,7 +1106,7 @@ void Sim3Tracker::calcResidualAndBuffers_debugFinish(int w)
 		snprintf(charbuf,500,"save/%sweights-%d-%d.png",packagePath.c_str(),w,iterationNumber);
 		cv::imwrite(charbuf,debugImageWeights);
 
-		printf("saved three images for lvl %d, iteration %d\n",w,iterationNumber);
+		log::info("saved three images for lvl %d, iteration %d\n",w,iterationNumber);
 	}
 }
 }
