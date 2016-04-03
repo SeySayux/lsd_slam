@@ -22,6 +22,10 @@ find_package(OpenCV REQUIRED)
 find_package(Boost REQUIRED thread)
 # find_package(X11 REQUIRED)
 
+if(${USE_PANGOLIN})
+  find_package(Pangolin 0.1 REQUIRED)
+endif()
+
 # FabMap
 # uncomment this part to enable fabmap
 #add_subdirectory(${PROJECT_SOURCE_DIR}/thirdparty/openFabMap)
@@ -29,19 +33,21 @@ find_package(Boost REQUIRED thread)
 #add_definitions("-DHAVE_FABMAP")
 #set(FABMAP_LIB openFABMAP )
 
-# Dynamic Reconfigure Services
-# rosbuild_find_ros_package(dynamic_reconfigure)
-# include(${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake)
-# gencfg()
+# SSE/NEON flags
+if(${USE_SSE})
+  add_definitions("-DENABLE_SSE")
+  set(VECTOR_FLAGS "-msse4.1 -msse3 -msse2 -msse")
+endif()
 
-# SSE flags
-# rosbuild_check_for_sse()
-# add_definitions("-DUSE_ROS")
-# add_definitions("-DENABLE_SSE")
+if(${USE_NEON})
+  add_definitions("-DENABLE_NEON")
+  set(VECTOR_FLAGS "-mfpu=neon -funsafe-math-optimizations")
+endif()
+
 
 # Also add some useful compiler flag
 set(CMAKE_CXX_FLAGS
-   "${CMAKE_CXX_FLAGS} ${SSE_FLAGS} -march=native  -std=c++11"
+  "${CMAKE_CXX_FLAGS} ${VECTOR_FLAGS} -march=native -std=c++11"
 )
 
 # Set source files
@@ -68,10 +74,18 @@ set(lsd_SOURCE_FILES
   ${PROJECT_SOURCE_DIR}/src/GlobalMapping/g2oTypeSim3Sophus.cpp
   ${PROJECT_SOURCE_DIR}/src/GlobalMapping/TrackableKeyFrameSearch.cpp
 )
+
+if(${USE_PANGOLIN})
+  set(PANGOLIN_SOURCE_FILES
+    ${PROJECT_SOURCE_DIR}/src/GUI.cpp
+    ${PROJECT_SOURCE_DIR}/src/util/RawLogReader.cpp
+    ${PROJECT_SOURCE_DIR}/src/IOWrapper/Pangolin/PangolinOutput3DWrapper.cpp
+  )
+endif()
+
 set(SOURCE_FILES
   ${lsd_SOURCE_FILES}
-  # ${PROJECT_SOURCE_DIR}/src/IOWrapper/ROS/ROSImageStreamThread.cpp
-  # ${PROJECT_SOURCE_DIR}/src/IOWrapper/ROS/ROSOutput3DWrapper.cpp
+  ${PANGOLIN_SOURCE_FILES}
   # ${PROJECT_SOURCE_DIR}/src/IOWrapper/OpenCV/ImageDisplay_OpenCV.cpp
   ${PROJECT_SOURCE_DIR}/src/IOWrapper/Null/ImageDisplay_Null.cpp
 )
@@ -89,18 +103,18 @@ message(${OpenCV_LIBS})
 # build shared library.
 add_library(lsdslam SHARED ${SOURCE_FILES})
 target_link_libraries(lsdslam ${FABMAP_LIB}
-    g2o_core
-    g2o_stuff
-    cxsparse
-    g2o_solver_csparse
-    g2o_csparse_extension
-    g2o_types_sim3
-    g2o_types_sba
-    ${OpenCV_LIBS}
-    ${Boost_LIBRARIES}
+  g2o_core
+  g2o_stuff
+  cxsparse
+  g2o_solver_csparse
+  g2o_csparse_extension
+  g2o_types_sim3
+  g2o_types_sba
+  ${OpenCV_LIBS}
+  ${Boost_LIBRARIES}
+  ${Pangolin_LIBRARIES}
 # X11
 )
-# rosbuild_link_boost(lsdslam thread)
 
 install(TARGETS lsdslam LIBRARY DESTINATION lib)
 install(DIRECTORY src/ DESTINATION include/LsdSlam
@@ -108,13 +122,9 @@ install(DIRECTORY src/ DESTINATION include/LsdSlam
 install(DIRECTORY thirdparty/Sophus/sophus DESTINATION include
         FILES_MATCHING PATTERN "*.hpp")
 
+if(${USE_PANGOLIN})
+  add_executable(LSD src/LSD.cpp)
+  target_link_libraries(LSD lsdslam ${Pangolin_LIBRARIES})
+endif()
 
-# build live ros node
-# rosbuild_add_executable(live_slam src/main_live_odometry.cpp)
-# target_link_libraries(live_slam lsdslam)
-
-
-# build image node
-# rosbuild_add_executable(dataset_slam src/main_on_images.cpp)
-# target_link_libraries(dataset_slam lsdslam)
-
+# vim: sw=2 ts=2 sts=2 et
